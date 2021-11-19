@@ -1,0 +1,5 @@
+videos/
+.idea/
+*.iml
+.env
+text.json
