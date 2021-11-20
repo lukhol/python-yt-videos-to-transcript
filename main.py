@@ -6,15 +6,16 @@ import subprocess
 import azure.cognitiveservices.speech as speechsdk
 from multiprocessing.dummy import Pool as ThreadPool
 from dotenv import load_dotenv
+import logging
 
 load_dotenv()
 
 
 def from_file(vid_id):
-    with open('text.json', 'r') as json_file:
+    with open('results.json', 'r') as json_file:
         data = json.load(json_file)
         if vid_id in data:
-            print(f"Skipping {vid_id} because it is already processed")
+            logging.info(f"Skipping {vid_id} because it is already processed")
             return
 
     region = os.environ.get("AZURE_REGION")
@@ -31,11 +32,13 @@ def from_file(vid_id):
 
     def process(wav_file):
         audio_input = speechsdk.AudioConfig(filename=f'videos/{vid_id}/parts/{wav_file}')
-        speech_config.speech_recognition_language = 'pl-PL'
+        lang = os.environ.get("SPEECH_RECOGNITION_LANGUAGE")
+        if lang is not None:
+            speech_config.speech_recognition_language = lang
         speech_recognizer = speechsdk.SpeechRecognizer(speech_config=speech_config, audio_config=audio_input)
 
         result = speech_recognizer.recognize_once_async().get()
-        print(f'For file {wav_file} found {result.text}')
+        logging.info(f'For file {wav_file} found {result.text}')
         return result.text
 
     pool = ThreadPool(processes=25)
@@ -45,33 +48,35 @@ def from_file(vid_id):
 
     final_text = ''.join(results)
 
-    with open('text.json', 'r') as json_file:
+    with open('results.json', 'r') as json_file:
         data = json.load(json_file)
 
     data[vid_id] = final_text
 
-    with open('text.json', 'w') as json_file:
+    with open('results.json', 'w') as json_file:
         json.dump(data, json_file)
 
 
 def download_videos():
-    r = requests.get('https://www.googleapis.com/youtube/v3/search?key=AIzaSyASkwQSgWfL4-bJGxT9c3BdfN4tuyxfcbw&channelId=UCBcXA_jyGkSUU6is4xS6S4g&part=snippet,id&order=date&maxResults=200&pageToken=CGQQAA')
+    google_api_key = os.environ.get("GOOGLE_API_KEY")
+    channel_id = os.environ.get("YT_CHANNEL_ID")
+    r = requests.get(f'https://www.googleapis.com/youtube/v3/search?key={google_api_key}&channelId={channel_id}g&part=snippet,id&order=date&maxResults=100&pageToken=CGQQAA')
     videos = json.loads(r.text)
 
     items = videos['items']
-    print(len(items))
+    logging.info(len(items))
     for idx, vid in enumerate(items):
-        print(f'processing index {idx+1}')
+        logging.info(f'processing index {idx+1}')
         if 'videoId' not in vid['id']:
-            print('Skipping because it is not a video')
+            logging.info('Skipping because it is not a video')
             continue
 
         id = vid['id']['videoId']
         if os.path.exists(f'videos/{id}') or id == 'MRIoLv2eMQA':
-            print(f'Skipping {id} because it already exists')
+            logging.info(f'Skipping {id} because it already exists')
             continue
 
-        print(f'Downloading {id} which is {idx}/{len(items)}')
+        logging.info(f'Downloading {id} which is {idx}/{len(items)}')
         url = f'https://www.youtube.com/watch?v={id}'
         video = YouTube(url).streams.filter(file_extension="mp4").first()
         video.download(output_path=f'./videos/{id}', filename=f'{id}.mp4', skip_existing=True)
@@ -95,3 +100,5 @@ def main():
 
 
 main()
+
+

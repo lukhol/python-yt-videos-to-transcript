@@ -2,4 +2,4 @@ videos/
 .idea/
 *.iml
 .env
-text.json
+results.json

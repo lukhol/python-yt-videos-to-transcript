@@ -1,4 +1,4 @@
-const text = require('./text.json');
+const text = require('./results.json');
 
 console.log('All objects: ' + Object.keys(text).length);
 
@@ -8,4 +8,5 @@ const withWykop = Object.entries(text)
 
 console.log('All with wykop: ' + withWykop.length);
 
-// console.log(withWykop[2].value);
+console.log(text['o_rxgLXPBMc'])
+
